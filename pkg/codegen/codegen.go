@@ -1081,8 +1081,8 @@ func GoSchemaImports(schemas ...*openapi3.SchemaRef) (map[string]goImport, error
 		schemaVal := sref.Value
 
 		t := schemaVal.Type
-		switch t {
-		case "", "object":
+		switch {
+		case t.Permits(openapi3.TypeObject) || t == nil:
 			for _, v := range schemaVal.Properties {
 				imprts, err := GoSchemaImports(v)
 				if err != nil {
@@ -1090,7 +1090,7 @@ func GoSchemaImports(schemas ...*openapi3.SchemaRef) (map[string]goImport, error
 				}
 				MergeImports(res, imprts)
 			}
-		case "array":
+		case t.Permits(openapi3.TypeArray):
 			imprts, err := GoSchemaImports(schemaVal.Items)
 			if err != nil {
 				return nil, err
