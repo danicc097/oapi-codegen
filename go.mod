@@ -3,10 +3,7 @@ module github.com/danicc097/oapi-codegen/v2
 go 1.20
 
 replace (
-	// can also use branches and will be replaced with the latest commit
-	// currently using `custom` branch for these 3
-	// only go.mod module name needs to change when using replace
-	github.com/deepmap/oapi-codegen/v2 => github.com/danicc097/oapi-codegen/v2 v2.0.0-20240320224529-0915d53d82d3
+	github.com/deepmap/oapi-codegen/v2 => github.com/danicc097/oapi-codegen/v2 v2.0.0-20240321223259-e3c336474629
 	github.com/getkin/kin-openapi => github.com/danicc097/kin-openapi v0.123.1-0.20240320222651-5a7e849603fb
 	github.com/oapi-codegen/runtime => github.com/danicc097/runtime v0.0.0-20240320224358-a94ad612e00c
 )
