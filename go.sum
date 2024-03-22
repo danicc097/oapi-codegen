@@ -1,7 +1,5 @@
 github.com/danicc097/kin-openapi v0.123.1-0.20240320222651-5a7e849603fb h1:SVh64ZpwEMBONccAb4Jw4wndjPG+iq0IfnxgQccN0GI=
 github.com/danicc097/kin-openapi v0.123.1-0.20240320222651-5a7e849603fb/go.mod h1:GZsxYZpdC71oFwQLnBSGHHoXpD+OGcvFszGwY7HIUkY=
-github.com/danicc097/oapi-codegen/v2 v2.0.10001 h1:QckmjBS5TTKrUExBrWm2qtBTIdAJm1fueazmmS3Q6J4=
-github.com/danicc097/oapi-codegen/v2 v2.0.10001/go.mod h1:+quxiNZhT4k2XRHeaqxPEFjRiTh3XTomcwikbMzBNLc=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/go-openapi/jsonpointer v0.20.2 h1:mQc3nmndL8ZBzStEo3JYF8wzmeWffDH4VbXz58sAx6Q=

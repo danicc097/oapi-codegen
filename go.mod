@@ -3,13 +3,16 @@ module github.com/danicc097/oapi-codegen/v2
 go 1.20
 
 replace (
-	github.com/deepmap/oapi-codegen/v2 => github.com/danicc097/oapi-codegen/v2 v2.0.10001
+	// since it depends on itself we can just point to the local directory and go.mod luckily doesn't complain.
+	// it if ends up not working at some point, a dummy tag push for each actual change is required
+	// so that replace references the lib with changes
+	github.com/deepmap/oapi-codegen/v2 => ./
 	github.com/getkin/kin-openapi => github.com/danicc097/kin-openapi v0.123.1-0.20240320222651-5a7e849603fb
 	github.com/oapi-codegen/runtime => github.com/danicc097/runtime v0.0.0-20240320224358-a94ad612e00c
 )
 
 require (
-	github.com/deepmap/oapi-codegen/v2 v2.1.0
+	github.com/deepmap/oapi-codegen/v2 v2.0.0-00010101000000-000000000000
 	github.com/getkin/kin-openapi v0.123.1-0.20240305161826-7aa9f7ee3d53
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616
