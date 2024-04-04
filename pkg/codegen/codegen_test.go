@@ -27,7 +27,6 @@ func checkLint(t *testing.T, filename string, code []byte) {
 }
 
 func TestExampleOpenAPICodeGeneration(t *testing.T) {
-
 	// Input vars for code generation:
 	packageName := "testswagger"
 	opts := Configuration{
@@ -178,7 +177,6 @@ func TestGoTypeImport(t *testing.T) {
 
 	// Make sure the generated code is valid:
 	checkLint(t, "test.gen.go", []byte(code))
-
 }
 
 func TestRemoteExternalReference(t *testing.T) {
@@ -219,7 +217,8 @@ func TestRemoteExternalReference(t *testing.T) {
 	assert.Contains(t, code, `
 // ExampleSchema_Item defines model for ExampleSchema.Item.
 type ExampleSchema_Item struct {
-	union json.RawMessage
+	union           json.RawMessage
+	FromQueryParams bool
 }
 `)
 
@@ -243,7 +242,6 @@ func (t *ExampleSchema_Item) FromExternalRef0NewPet(v externalRef0.NewPet) error
 
 	// Make sure the generated code is valid:
 	checkLint(t, "test.gen.go", []byte(code))
-
 }
 
 //go:embed test_spec.yaml
