@@ -76,12 +76,7 @@ func (s *Schema) AddProperty(p Property) error {
 }
 
 func (s Schema) GetAdditionalTypeDefs() []TypeDefinition {
-	var result []TypeDefinition
-	for _, p := range s.Properties {
-		result = append(result, p.Schema.GetAdditionalTypeDefs()...)
-	}
-	result = append(result, s.AdditionalTypes...)
-	return result
+	return s.AdditionalTypes
 }
 
 type Property struct {
@@ -99,9 +94,19 @@ type Property struct {
 
 func (p Property) GoFieldName() string {
 	goFieldName := p.JsonFieldName
-	if _, ok := p.Extensions[extGoName]; ok {
-		if extGoFieldName, err := extParseGoFieldName(p.Extensions[extGoName]); err == nil {
+	if extension, ok := p.Extensions[extGoName]; ok {
+		if extGoFieldName, err := extParseGoFieldName(extension); err == nil {
 			goFieldName = extGoFieldName
+		}
+	}
+
+	if globalState.options.Compatibility.AllowUnexportedStructFieldNames {
+		if extension, ok := p.Extensions[extOapiCodegenOnlyHonourGoName]; ok {
+			if extOapiCodegenOnlyHonourGoName, err := extParseOapiCodegenOnlyHonourGoName(extension); err == nil {
+				if extOapiCodegenOnlyHonourGoName {
+					return goFieldName
+				}
+			}
 		}
 	}
 
@@ -308,13 +313,13 @@ func GenerateGoSchema(sref *openapi3.SchemaRef, path []string) (Schema, error) {
 	// Schema type and format, eg. string / binary
 	t := schema.Type
 	// Handle objects and empty schemas first as a special case
-	if t.Is(openapi3.TypeObject) || t == nil {
+	if t.Slice() == nil || t.Is("object") {
 		var outType string
 
 		if len(schema.Properties) == 0 && !SchemaHasAdditionalProperties(schema) && schema.AnyOf == nil && schema.OneOf == nil {
 			// If the object has no properties or additional properties, we
 			// have some special cases for its type.
-			if t.Is(openapi3.TypeObject) {
+			if t.Is("object") {
 				// We have an object with no properties. This is a generic object
 				// expressed as a map.
 				outType = "map[string]interface{}"
@@ -424,6 +429,9 @@ func GenerateGoSchema(sref *openapi3.SchemaRef, path []string) (Schema, error) {
 					Deprecated:    p.Value.Deprecated,
 				}
 				outSchema.Properties = append(outSchema.Properties, prop)
+				if len(pSchema.AdditionalTypes) > 0 {
+					outSchema.AdditionalTypes = append(outSchema.AdditionalTypes, pSchema.AdditionalTypes...)
+				}
 			}
 
 			if schema.AnyOf != nil {
@@ -457,7 +465,7 @@ func GenerateGoSchema(sref *openapi3.SchemaRef, path []string) (Schema, error) {
 				Description:     newTypeDef.Schema.Description,
 				GoType:          typeName,
 				DefineViaAlias:  true,
-				AdditionalTypes: []TypeDefinition{newTypeDef},
+				AdditionalTypes: append(outSchema.AdditionalTypes, newTypeDef),
 			}
 		}
 
@@ -479,8 +487,8 @@ func GenerateGoSchema(sref *openapi3.SchemaRef, path []string) (Schema, error) {
 
 		enumNames := enumValues
 		for _, key := range []string{extEnumVarNames, extEnumNames} {
-			if _, ok := schema.Extensions[key]; ok {
-				if extEnumNames, err := extParseEnumVarNames(schema.Extensions[key]); err == nil {
+			if extension, ok := schema.Extensions[key]; ok {
+				if extEnumNames, err := extParseEnumVarNames(extension); err == nil {
 					enumNames = extEnumNames
 					break
 				}
@@ -539,8 +547,7 @@ func oapiSchemaToGoType(schema *openapi3.Schema, path []string, outSchema *Schem
 	f := schema.Format
 	t := schema.Type
 
-	switch {
-	case t.Is(openapi3.TypeArray):
+	if t.Is("array") {
 		// For arrays, we'll get the type of the Items and throw a
 		// [] in front of it.
 		arrayType, err := GenerateGoSchema(schema.Items, path)
@@ -571,7 +578,8 @@ func oapiSchemaToGoType(schema *openapi3.Schema, path []string, outSchema *Schem
 		if sliceContains(globalState.options.OutputOptions.DisableTypeAliasesForType, "array") {
 			outSchema.DefineViaAlias = false
 		}
-	case t.Is(openapi3.TypeInteger):
+
+	} else if t.Is("integer") {
 		// We default to int if format doesn't ask for something else.
 		if f == "int64" {
 			outSchema.GoType = "int64"
@@ -597,7 +605,7 @@ func oapiSchemaToGoType(schema *openapi3.Schema, path []string, outSchema *Schem
 			outSchema.GoType = "int"
 		}
 		outSchema.DefineViaAlias = true
-	case t.Is(openapi3.TypeNumber):
+	} else if t.Is("number") {
 		// We default to float for "number"
 		if f == "double" {
 			outSchema.GoType = "float64"
@@ -607,13 +615,13 @@ func oapiSchemaToGoType(schema *openapi3.Schema, path []string, outSchema *Schem
 			return fmt.Errorf("invalid number format: %s", f)
 		}
 		outSchema.DefineViaAlias = true
-	case t.Is(openapi3.TypeBoolean):
+	} else if t.Is("boolean") {
 		if f != "" {
 			return fmt.Errorf("invalid format (%s) for boolean", f)
 		}
 		outSchema.GoType = "bool"
 		outSchema.DefineViaAlias = true
-	case t.Is(openapi3.TypeString):
+	} else if t.Is("string") {
 		// Special case string formats here.
 		switch f {
 		case "byte":
@@ -636,8 +644,8 @@ func oapiSchemaToGoType(schema *openapi3.Schema, path []string, outSchema *Schem
 			outSchema.GoType = "string"
 		}
 		outSchema.DefineViaAlias = true
-	default:
-		return fmt.Errorf("unhandled Schema type: %s", t)
+	} else {
+		return fmt.Errorf("unhandled Schema type: %v", t)
 	}
 	return nil
 }
@@ -679,8 +687,8 @@ func GenFieldsFromProperties(props []Property) []string {
 		if p.Deprecated {
 			// This comment has to be on its own line for godoc & IDEs to pick up
 			var deprecationReason string
-			if _, ok := p.Extensions[extDeprecationReason]; ok {
-				if extOmitEmpty, err := extParseDeprecationReason(p.Extensions[extDeprecationReason]); err == nil {
+			if extension, ok := p.Extensions[extDeprecationReason]; ok {
+				if extOmitEmpty, err := extParseDeprecationReason(extension); err == nil {
 					deprecationReason = extOmitEmpty
 				}
 			}
@@ -729,8 +737,8 @@ func GenFieldsFromProperties(props []Property) []string {
 		}
 
 		// Support x-go-json-ignore
-		if _, ok := p.Extensions[extPropGoJsonIgnore]; ok {
-			if goJsonIgnore, err := extParseGoJsonIgnore(p.Extensions[extPropGoJsonIgnore]); err == nil && goJsonIgnore {
+		if extension, ok := p.Extensions[extPropGoJsonIgnore]; ok {
+			if goJsonIgnore, err := extParseGoJsonIgnore(extension); err == nil && goJsonIgnore {
 				fieldTags["json"] = "-"
 			}
 		}
@@ -738,14 +746,14 @@ func GenFieldsFromProperties(props []Property) []string {
 		// Support x-oapi-codegen-extra-tags
 		if extension, ok := p.Extensions[extPropExtraTags]; ok {
 			if tags, err := extExtraTags(extension); err == nil {
-				keys := SortedStringKeys(tags)
+				keys := SortedMapKeys(tags)
 				for _, k := range keys {
 					fieldTags[k] = tags[k]
 				}
 			}
 		}
 		// Convert the fieldTags map into Go field annotations.
-		keys := SortedStringKeys(fieldTags)
+		keys := SortedMapKeys(fieldTags)
 		tags := make([]string, len(keys))
 		for i, k := range keys {
 			tags[i] = fmt.Sprintf(`%s:"%s"`, k, fieldTags[k])
